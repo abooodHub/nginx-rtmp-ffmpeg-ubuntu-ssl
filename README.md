@@ -1,107 +1,110 @@
-# 📡 إعداد بث HLS آمن بمعدل بت متكيف (ABR)
+<div align="center">
 
-> دليل شامل لبناء خادم بث مباشر احترافي باستخدام **Nginx + RTMP + FFmpeg** على نظام **Ubuntu 20.04**
+# 📡 Secure HLS Adaptive Bitrate Streaming
+### Nginx + RTMP + FFmpeg + SSL on Ubuntu 20.04
 
 [![Ubuntu](https://img.shields.io/badge/Ubuntu-20.04-E95420?logo=ubuntu&logoColor=white)](https://ubuntu.com/)
 [![Nginx](https://img.shields.io/badge/Nginx-RTMP-009639?logo=nginx&logoColor=white)](https://nginx.org/)
 [![FFmpeg](https://img.shields.io/badge/FFmpeg-Transcoding-007808?logo=ffmpeg&logoColor=white)](https://ffmpeg.org/)
 [![HLS](https://img.shields.io/badge/HLS-Adaptive_Bitrate-FF6B6B)](https://developer.apple.com/streaming/)
+[![SSL](https://img.shields.io/badge/SSL-Let's_Encrypt-003A70?logo=letsencrypt&logoColor=white)](https://letsencrypt.org/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
----
+**A complete guide to set up a secure multi-quality live streaming server with Adaptive Bitrate (ABR)**
 
-## 📖 جدول المحتويات
+دليل شامل لإعداد بث مباشر متعدد الجودات باستخدام Nginx + RTMP + FFmpeg مع شهادة SSL على Ubuntu 20.04
 
-- [نظرة عامة](#-نظرة-عامة)
-- [المميزات](#-المميزات)
-- [المتطلبات](#-المتطلبات)
-- [المعمارية](#-المعمارية)
-- [خطوات الإعداد](#-خطوات-الإعداد)
-  - [1. تجهيز الخادم](#1-تجهيز-الخادم)
-  - [2. تثبيت Nginx وRTMP](#2-تثبيت-nginx-وrtmp)
-  - [3. إنشاء المجلدات والصلاحيات](#3-إنشاء-المجلدات-والصلاحيات)
-  - [4. إعداد ملفات Cross-domain](#4-إعداد-ملفات-cross-domain)
-  - [5. إعداد Nginx الأساسي](#5-إعداد-nginx-الأساسي)
-  - [6. إصدار شهادة SSL](#6-إصدار-شهادة-ssl)
-  - [7. تهيئة nginx.conf لتفعيل RTMP](#7-تهيئة-nginxconf-لتفعيل-rtmp)
-  - [8. تثبيت مشغّل Video.js](#8-تثبيت-مشغل-videojs)
-  - [9. تفعيل ABR](#9-تفعيل-abr)
-- [الاختبار](#-الاختبار)
-- [استكشاف الأخطاء](#-استكشاف-الأخطاء)
-- [المساهمة](#-المساهمة)
-- [الترخيص](#-الترخيص)
+</div>
 
 ---
 
-## 🎯 نظرة عامة
+## 📖 Table of Contents
 
-هذا المشروع يشرح خطوة بخطوة كيفية إعداد خادم بث مباشر (Live Streaming) آمن باستخدام **Nginx** مع وحدة **RTMP** وأداة **FFmpeg**. سيُمكّنك هذا الإعداد من بث الفيديو بعدة جودات (**Adaptive Bitrate Streaming**) بحيث يختار المشغّل تلقائياً الجودة المناسبة لسرعة اتصال المشاهد.
-
----
-
-## ✨ المميزات
-
-- ✅ **استقبال البث عبر RTMP** من برامج مثل OBS Studio
-- ✅ **تحويل تلقائي إلى 5 جودات** (480p, 720p, 960p, 1280p, المصدر)
-- ✅ **توزيع البث عبر HLS و DASH** للتوافق مع جميع الأجهزة
-- ✅ **شهادة SSL مجانية** من Let's Encrypt
-- ✅ **مشغّل ويب جاهز** مبني على Video.js
-- ✅ **تسجيل البث تلقائياً** بصيغة FLV/MP4
-- ✅ **لوحة إحصائيات** لمراقبة البث المباشر
-- ✅ **تشفير HLS اختياري** بـ AES-128
+- [Overview](#-overview)
+- [Features](#-features)
+- [Requirements](#-requirements)
+- [Architecture](#-architecture)
+- [Installation Steps](#-installation-steps)
+- [Testing](#-testing)
+- [Troubleshooting](#-troubleshooting)
+- [Contributing](#-contributing)
+- [License](#-license)
 
 ---
 
-## 🛠 المتطلبات
+## 🎯 Overview
 
-| المتطلب | التفاصيل |
-|---------|----------|
-| نظام التشغيل | Ubuntu 20.04 LTS |
-| المعالج | 4 أنوية فأكثر |
-| الذاكرة | 4 GB RAM على الأقل |
-| التخزين | 20 GB متاحة |
-| النطاق | نطاق مسجّل ومُوجَّه بسجل A للخادم |
-| المنافذ | 80, 443, 1935 مفتوحة |
+This project provides a complete step-by-step guide to set up a secure live streaming server using **Nginx** with the **RTMP** module and **FFmpeg** on **Ubuntu 20.04**. The setup enables **Adaptive Bitrate Streaming (ABR)** with multiple quality levels.
+
+**بالعربي:** يشرح هذا المشروع كيفية إعداد خادم بث مباشر آمن باستخدام Nginx مع وحدة RTMP وأداة FFmpeg، بحيث يبث الفيديو بعدة جودات مختلفة ويختار المشغّل تلقائياً الجودة المناسبة لسرعة اتصال المشاهد.
 
 ---
 
-## 🏗 المعمارية
+## ✨ Features
 
-```
-┌─────────────┐      RTMP       ┌──────────────┐     FFmpeg      ┌──────────┐
-│ OBS Studio  │ ──────────────> │  Nginx /live │ ──────────────> │ 5 جودات  │
-│  (Encoder)  │   port 1935     │              │   transcoding   │  مختلفة  │
-└─────────────┘                 └──────┬───────┘                 └────┬─────┘
-                                       │                              │
-                                       │ push                         │
-                                       ▼                              ▼
-                                ┌──────────────┐              ┌───────────────┐
-                                │ Nginx /hls   │              │ HLS Variants  │
-                                │ Nginx /dash  │              │ .m3u8 / .ts   │
-                                └──────┬───────┘              └───────┬───────┘
-                                       │                              │
-                                       │           HTTPS              │
-                                       ▼                              ▼
-                                ┌─────────────────────────────────────────┐
-                                │       Video.js Player (المتصفح)         │
-                                └─────────────────────────────────────────┘
+- ✅ **RTMP ingest** from OBS Studio and similar encoders
+- ✅ **Automatic transcoding** to 5 quality levels (480p, 720p, 960p, 1280p, source)
+- ✅ **HLS & DASH delivery** for cross-device compatibility
+- ✅ **Free SSL certificate** from Let's Encrypt
+- ✅ **Video.js web player** ready to use
+- ✅ **Automatic recording** in FLV/MP4 format
+- ✅ **Live statistics dashboard**
+- ✅ **Optional AES-128 HLS encryption**
+
+---
+
+## 🛠 Requirements
+
+| Requirement | Details |
+|-------------|---------|
+| OS | Ubuntu 20.04 LTS |
+| CPU | 4 cores or more |
+| RAM | 4 GB minimum |
+| Storage | 20 GB available |
+| Domain | Registered domain with A record pointing to server |
+| Ports | 80, 443, 1935 open |
+
+---
+
+## 🏗 Architecture
+
+```mermaid
+flowchart LR
+    A[OBS Studio Encoder] -->|RTMP port 1935| B[Nginx /live]
+    B -->|FFmpeg transcoding| C[5 Quality Variants]
+    C --> D[Nginx /hls]
+    C --> E[Nginx /dash]
+    D --> F[HLS .m3u8 / .ts]
+    E --> G[DASH .mpd]
+    F -->|HTTPS| H[Video.js Player]
+    G -->|HTTPS| H
 ```
 
+### Output Qualities
+
+| Suffix | Resolution | Bitrate | Target Audience |
+|--------|------------|---------|-----------------|
+| `_low` | 480p | 256 kbps | Mobile / Slow connection |
+| `_mid` | 720p | 768 kbps | Medium connection |
+| `_high` | 960p | 1024 kbps | Good connection |
+| `_higher` | 1280p | 1920 kbps | HD - Fast internet |
+| `_src` | Original | Source | Best possible quality |
+
 ---
 
-## 🚀 خطوات الإعداد
+## 🚀 Installation Steps
 
-> **ملاحظة:** استبدل `YOURDOMAIN` بنطاقك الفعلي (مثال: `stream.example.com`) في جميع الأوامر التالية.
+> ⚠️ Replace `YOURDOMAIN` with your actual domain (e.g., `stream.example.com`) in all commands below.
 
-### 1. تجهيز الخادم
+### 1. Server Preparation
 
-تحديث النظام:
+Update the system:
 
 ```bash
 sudo apt update && sudo apt upgrade -y
 ```
 
-تثبيت الحزم والمكتبات الأساسية:
+Install essential packages:
 
 ```bash
 sudo apt-get install wget unzip software-properties-common dpkg-dev git \
@@ -112,38 +115,34 @@ sudo apt-get install wget unzip software-properties-common dpkg-dev git \
   libx264-dev libvo-aacenc-dev libmp3lame-dev libopus-dev -y
 ```
 
----
-
-### 2. تثبيت Nginx وRTMP
+### 2. Install Nginx & RTMP
 
 ```bash
 sudo apt install nginx -y
 sudo apt install libnginx-mod-rtmp python3-certbot-nginx -y
 ```
 
----
-
-### 3. إنشاء المجلدات والصلاحيات
+### 3. Create Directories
 
 ```bash
-# مجلد الموقع
+# Website folder
 sudo mkdir -p /var/www/yourdomain/web/js/videojs
 
-# مجلدات البث
+# Streaming folders
 sudo mkdir -p /var/livestream/hls \
               /var/livestream/dash \
               /var/livestream/recordings \
               /var/livestream/keys
 
-# روابط رمزية
+# Symbolic links
 sudo ln -s /var/livestream/hls  /var/www/yourdomain/web/hls
 sudo ln -s /var/livestream/dash /var/www/yourdomain/web/dash
 
-# الملكية
+# Set ownership
 sudo chown -R www-data:www-data /var/livestream /var/www/yourdomain
 ```
 
-جلب وحدة nginx-rtmp-module:
+Clone the nginx-rtmp-module:
 
 ```bash
 cd /usr/src
@@ -153,15 +152,13 @@ sudo cp /usr/src/nginx-rtmp-module/stat.xsl /var/www/html/stat.xsl
 sudo cp /usr/src/nginx-rtmp-module/stat.xsl /var/www/yourdomain/web/stat.xsl
 ```
 
----
-
-### 4. إعداد ملفات Cross-domain
+### 4. Cross-domain Setup
 
 ```bash
 sudo nano /var/www/html/crossdomain.xml
 ```
 
-محتوى الملف:
+Paste this content:
 
 ```xml
 <?xml version="1.0"?>
@@ -172,31 +169,29 @@ sudo nano /var/www/html/crossdomain.xml
 </cross-domain-policy>
 ```
 
-نسخ الملف وإنشاء صفحة index مؤقتة:
+Copy files:
 
 ```bash
 sudo cp /var/www/html/crossdomain.xml /var/www/yourdomain/web/crossdomain.xml
 sudo cp /var/www/html/index.nginx-debian.html /var/www/yourdomain/web/index.html
 ```
 
----
-
-### 5. إعداد Nginx الأساسي
+### 5. Basic Nginx Config
 
 ```bash
 sudo nano /etc/nginx/sites-available/yourdomain.conf
 ```
 
 <details>
-<summary>📄 اضغط لعرض محتوى الملف</summary>
+<summary>📄 Click to view the full config</summary>
 
 ```nginx
 server {
     listen 80;
     listen [::]:80;
 
-    server_name YOURDOMAIN;            # ← غيّر هذا
-    root /var/www/YOURDOMAIN/web;      # ← غيّر هذا
+    server_name YOURDOMAIN;
+    root /var/www/YOURDOMAIN/web;
 
     index index.html index-nginx.html index.htm index.php;
     client_max_body_size 8192M;
@@ -272,7 +267,7 @@ server {
 
 </details>
 
-تفعيل الموقع واختبار الإعداد:
+Enable the site and test:
 
 ```bash
 sudo ln -s /etc/nginx/sites-available/YOURDOMAIN.conf \
@@ -282,21 +277,17 @@ sudo nginx -t
 sudo systemctl restart nginx
 ```
 
----
-
-### 6. إصدار شهادة SSL
+### 6. SSL Certificate
 
 ```bash
 sudo certbot --nginx -d YOURDOMAIN
 ```
 
-> ⚠️ تأكد أن نطاقك مُوجَّه بسجل A إلى عنوان IP الخاص بالخادم قبل تنفيذ هذا الأمر.
+> ⚠️ Make sure your domain has an A record pointing to your server IP before running this command.
 
----
+### 7. Configure nginx.conf
 
-### 7. تهيئة nginx.conf لتفعيل RTMP
-
-نسخ احتياطي وتنزيل ملف جاهز:
+Backup and download the ready-made config:
 
 ```bash
 sudo mv /etc/nginx/nginx.conf /etc/nginx/nginx-original.conf
@@ -305,34 +296,18 @@ sudo wget -O /etc/nginx/nginx.conf \
   https://raw.githubusercontent.com/ustoopia/Nginx-config-for-livestreams-ABS-HLS-ffmpeg-transc-/main/etc/nginx/nginx.conf
 ```
 
-#### 📊 جدول الجودات الناتجة بعد تفعيل ABR
-
-| اللاحقة | الدقّة | معدل البت | الاستخدام |
-|---------|--------|-----------|-----------|
-| `_low` | 480p | 256 kbps | جوّال / إنترنت ضعيف |
-| `_mid` | 720p | 768 kbps | اتصال متوسط |
-| `_high` | 960p | 1024 kbps | اتصال جيّد |
-| `_higher` | 1280p | 1920 kbps | HD - إنترنت سريع |
-| `_src` | الأصلية | الأصلي | أعلى جودة ممكنة |
-
 <details>
-<summary>📄 شرح أقسام nginx.conf</summary>
+<summary>📄 nginx.conf sections explained</summary>
 
-**قسم http {}**: إعدادات Nginx الأساسية (workers, gzip, logs).
-
-**تطبيق /live**: نقطة استقبال البث على المنفذ 1935.
-
-**تطبيق /hls**: ينتج ملفات `.m3u8` و `.ts`.
-
-**تطبيق /dash**: ينتج ملفات MPEG-DASH (`.mpd`).
-
-**تطبيق /recorder**: لتسجيل البث تلقائياً.
+- **`http {}`** - Basic Nginx settings (workers, gzip, logs)
+- **`/live` application** - RTMP ingest point on port 1935
+- **`/hls` application** - Produces `.m3u8` and `.ts` files
+- **`/dash` application** - Produces MPEG-DASH (`.mpd`) files
+- **`/recorder` application** - Auto-records streams
 
 </details>
 
----
-
-### 8. تثبيت مشغّل Video.js
+### 8. Install Video.js Player
 
 ```bash
 sudo wget -O /var/www/YOURDOMAIN/web/js/videojs/latest.zip \
@@ -342,7 +317,7 @@ cd /var/www/YOURDOMAIN/web/js/videojs
 sudo unzip latest.zip
 ```
 
-إنشاء صفحة `videoplayer.html`:
+Create `videoplayer.html`:
 
 ```html
 <!DOCTYPE html>
@@ -370,33 +345,31 @@ sudo unzip latest.zip
 </html>
 ```
 
-ضبط الصلاحيات:
+Set permissions:
 
 ```bash
 sudo chown -R www-data:www-data /var/www/yourdomain/web /var/www/html
 ```
 
----
-
-### 9. تفعيل ABR
+### 9. Enable ABR
 
 ```bash
 sudo nano /etc/nginx/nginx.conf
 ```
 
-**الخطوات:**
+**Steps:**
 
-1. أزل `#` من أسطر `exec ffmpeg` التي تنتج الجودات الخمس.
-2. ضع `#` أمام السطر: `push rtmp://localhost/hls;`
-3. أزل `#` من أسطر `hls_variant` الخمسة داخل تطبيق `hls`.
-4. احفظ وأعد التشغيل:
+1. Uncomment the `exec ffmpeg` lines that produce 5 quality variants
+2. Comment out the line: `push rtmp://localhost/hls;`
+3. Uncomment the 5 `hls_variant` lines inside the `hls` application
+4. Save and restart:
 
 ```bash
 sudo nginx -t
 sudo systemctl restart nginx
 ```
 
-إنشاء صفحة `abs.html` للمشاهدة:
+Create `abs.html` for adaptive playback:
 
 ```html
 <!DOCTYPE html>
@@ -427,25 +400,25 @@ sudo systemctl restart nginx
 
 ---
 
-## 🎬 الاختبار
+## 🎬 Testing
 
-### إعدادات OBS Studio
+### OBS Studio Settings
 
-| الخيار | القيمة |
-|--------|--------|
+| Option | Value |
+|--------|-------|
 | **Service** | Custom |
 | **Server** | `rtmp://YOURDOMAIN/live` |
 | **Stream Key** | `stream` |
 
-ثم افتح المتصفح على:
+Then open in your browser:
 
 ```
 https://YOURDOMAIN/abs.html
 ```
 
-### لوحة الإحصائيات
+### Statistics Dashboard
 
-لمراقبة البث المباشر:
+Monitor live streams at:
 
 ```
 https://YOURDOMAIN/stat
@@ -453,12 +426,12 @@ https://YOURDOMAIN/stat
 
 ---
 
-## 🔧 استكشاف الأخطاء
+## 🔧 Troubleshooting
 
 <details>
-<summary><strong>البث لا يظهر في المتصفح</strong></summary>
+<summary><strong>Stream not showing in browser</strong></summary>
 
-تحقق من فتح المنفذ 1935:
+Open port 1935:
 
 ```bash
 sudo ufw allow 1935/tcp
@@ -468,9 +441,9 @@ sudo ufw reload
 </details>
 
 <details>
-<summary><strong>خطأ في إعداد Nginx</strong></summary>
+<summary><strong>Nginx config error</strong></summary>
 
-راجع سجل الأخطاء:
+Check error log:
 
 ```bash
 sudo tail -f /var/log/nginx/error.log
@@ -479,54 +452,52 @@ sudo tail -f /var/log/nginx/error.log
 </details>
 
 <details>
-<summary><strong>استهلاك CPU مرتفع</strong></summary>
+<summary><strong>High CPU usage</strong></summary>
 
-قلّل عدد الجودات في `nginx.conf`، أو استخدم `-preset ultrafast` بدلاً من `veryfast`.
+Reduce quality variants in `nginx.conf`, or use `-preset ultrafast` instead of `veryfast`.
 
 </details>
 
 <details>
-<summary><strong>تأخير في البث</strong></summary>
+<summary><strong>Stream delay / latency</strong></summary>
 
-قلّل قيمة `hls_fragment` إلى `2s` و `hls_playlist_length` إلى `10s`.
+Reduce `hls_fragment` to `2s` and `hls_playlist_length` to `10s`.
 
 </details>
 
 ---
 
-## 🤝 المساهمة
+## 🤝 Contributing
 
-المساهمات مرحّب بها! اتبع الخطوات:
+Contributions are welcome! Follow these steps:
 
-1. **Fork** المستودع
-2. أنشئ فرعاً جديداً (`git checkout -b feature/AmazingFeature`)
-3. التزم بتغييراتك (`git commit -m 'Add some AmazingFeature'`)
-4. ادفع الفرع (`git push origin feature/AmazingFeature`)
-5. افتح **Pull Request**
+1. **Fork** the repository
+2. Create a new branch: `git checkout -b feature/AmazingFeature`
+3. Commit your changes: `git commit -m 'Add some AmazingFeature'`
+4. Push to the branch: `git push origin feature/AmazingFeature`
+5. Open a **Pull Request**
 
 ---
 
-## 📚 مراجع مفيدة
+## 📚 Useful References
 
-- [توثيق nginx-rtmp-module](https://github.com/arut/nginx-rtmp-module/wiki/Directives)
-- [توثيق FFmpeg](https://ffmpeg.org/documentation.html)
-- [Video.js Documentation](https://videojs.com/getting-started)
+- [nginx-rtmp-module documentation](https://github.com/arut/nginx-rtmp-module/wiki/Directives)
+- [FFmpeg documentation](https://ffmpeg.org/documentation.html)
+- [Video.js documentation](https://videojs.com/getting-started)
 - [Let's Encrypt](https://letsencrypt.org/)
 
 ---
 
-## 📄 الترخيص
+## 📄 License
 
-هذا المشروع مرخّص تحت رخصة **MIT** - راجع ملف [LICENSE](LICENSE) للتفاصيل.
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 
 ---
 
 <div align="center">
 
-**⭐ إذا أعجبك هذا الدليل، لا تنسَ إعطاءه نجمة ⭐**
+**⭐ If you found this guide helpful, please give it a star! ⭐**
 
-صُنع بـ ❤️ للمجتمع العربي
+Made with ❤️ for the streaming community
 
 </div>
-#   n g i n x - r t m p - f f m p e g - u b u n t u - s s l  
- 
