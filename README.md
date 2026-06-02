@@ -218,6 +218,8 @@ server {
     location /stat {
         rtmp_stat all;
         rtmp_stat_stylesheet stat.xsl;
+        # auth_basic Restricted Content;        # Create a valid .htpasswd before uncommenting this.
+        # auth_basic_user_file .htpasswd;       # Create a valid .htpasswd before uncommenting this.
     }
 
     location /stat.xsl {
@@ -259,8 +261,18 @@ server {
         alias /var/livestream/dash;
 
         expires -1;
+        add_header Strict-Transport-Security "max-age=63072000";
         add_header Cache-Control no-cache;
         add_header 'Access-Control-Allow-Origin' '*' always;
+        add_header 'Access-Control-Expose-Headers' 'Content-Length';
+
+        if ($request_method = 'OPTIONS') {
+            add_header 'Access-Control-Allow-Origin' '*';
+            add_header 'Access-Control-Max-Age' 1728000;
+            add_header 'Content-Type' 'text/plain charset=UTF-8';
+            add_header 'Content-Length' 0;
+            return 204;
+        }
     }
 }
 ```
